@@ -80,7 +80,7 @@ def fix_letter_forms(word):
        vowels."""
     letters = list(polish_letters(word)
     result = ''
-    for (letter, next) in izip(letters, letters + None):
+    for (letter, next) in izip(letters, letters[1:] + None):
         substitution = True
         if next in vowels:
             if letter == c_acute:
