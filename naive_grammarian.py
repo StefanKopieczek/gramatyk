@@ -227,14 +227,30 @@ class Noun(object):
     @classmethod
     def guessAccusativePl(self):
         accuspl = ''
-        if gender == 'm' and self._personal:
+        if self.guessGender() == 'm' and self._personal:
             accuspl = self.guessGenitivePl()    
         else:
             accuspl = self.guessPlural()
             
     @classmethod
     def guessGenitive(self):
-        return None # Todo
+        gender = self.guessGender()
+        root = self.guessRoot()
+        root_end = list(polish_letters(root))[-1]
+        
+        gen = ''
+        if (gender == 'm' and self._animate) or
+           (gender == 'n'):
+           gen = root + 'a'
+        elif gender == 'm' and not self._animate:
+            gen = root + 'u'
+        else: # == 'f'
+            if root_end in ['g', 'k']:
+                gen = root + 'y'
+            else:
+                gen = root + 'i'
+       
+        return fix_letter_forms(gen)
         
     @classmethod
     def guessGenitivePl(self):
