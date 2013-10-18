@@ -13,12 +13,11 @@ z_dot    =  u'\u017c'
 
 # Character classes used by the Naive Grammarian.
 vowels = ['a', 'e', 'i', 'o', 'u', 'y', a_nasal, e_nasal, o_nasal] 
-consonants = list('mbpwfndtzscrlgkhj') + 
-             ['dz', 'd'+z_acute, c_acute, z_dot, 'rz', 'sz', 'd'+z_dot, 'cz', 
-              n_acute, 'ch', l_stroke]
 compound_letters = ['dzi', 'd'+z_acute, 'd'+z_dot, 'dz', 'bi', 'ci', 'ch',
                     'cz', 'gi', 'ki', 'mi', 'ni', 'pi', 'rz', 'si', 'sz',
                     'zi']
+consonants = list('mbpwfndtzscrlgkhj') + [c_acute, z_dot, n_acute,
+             z_acute, l_stroke] + compound_letters
 
 # Conversion tables for hard consonants to soft, and vice versa.
 soft_to_hard = 
@@ -29,10 +28,12 @@ soft_to_hard =
     'wi'        : 'w',
     'mi'        : 'm',
     c_acute     : 't',
+    'ci'        : 't',
     d + z_acute : 'd',
     s_acute     : 's',
     z_acute     : 'z',
     n_acute     : 'n',
+    'ni'        : 'n',
     l           : l_stroke,
     'rz'        : 'r',
     'cz'        : 'c',      # cz softens to c, but c is still soft.
@@ -41,6 +42,7 @@ soft_to_hard =
     'dz'        : 'g',
     'sz'        : 'ch',
     s_acute     : 'ch',
+    'si'        : 'ch',
     'j'         : 'j'       # 'j' is soft, but has no matching hard consonant.   
 }
 
@@ -49,15 +51,15 @@ del hard_to_soft['j'] # 'j' is not a hard consonant.
 
 # -- Helper methods used by the Naive Grammarian -- #
 
-def _cluster_is_soft(cluster):
-    cluster = cluster.lower() # Ignore case for comparisons.
-    return cluster in soft_to_hard
+def is_soft(letter):
+    letter = letter.lower() # Ignore case for comparisons.
+    return letter in soft_to_hard
 
-def _cluster_is_hard(cluster):
+def is_hard(letter):
     # We are hard if and only if we are not soft.
     # It is not enough to check the hard_to_soft table, since some soft
     # consonants have softened forms, and so appear there without being hard.
-    return not _cluster_is_soft(cluster)
+    return letter in consonants and not is_soft(letter)
 
 def polish_letters(word):
     """"Generator for the polish letter groups in a word, respecting 
@@ -115,13 +117,157 @@ def fix_letter_forms(word):
     return result     
 
 class Noun(object):
-    def __init__(self, nominative):
+    def __init__(self,
+                 nominative=None,
+                 gender=None,
+                 root=None):
         self._nominative = nominative
+        self._gender = gender
+        self._root = root
+        self._animate = False  # Assume not animate
+        self._personal = False # Assume not personal.
 
     @classmethod
-    def getRoot(self):
-        root = self._nominative
-        if root[-1] in vowels:
-            root = root[:-1]
-        return root
+    def setRoot(self, root):
+        self._root = root
+        
+    @classmethod
+    def setGender(self, gender):
+        if gender in ['m', 'f', 'n']:
+            self._gender = gender
+        else:
+            raise ValueError('Invalid gender \''+gender+'\'') 
+     
+    @classmethod
+    def setAnimate(self, is_animate):
+       """Set whether this Noun is to be regarded as an inanimate
+          object for the purposes of declension. If not animate,
+          also mark as 'not a person' since all personal nouns are
+          necessarily animate."""
+       self._animate = is_animate
+       self._personal = self._personal and is_animate
+    
+    @classmethod
+    def setPersonal(self, is_personal):
+        """Set whether this Noun is to be regarded as a person for the
+           purposes of declension. If it is, also mark it as animate,
+           since all people are animate."""
+        self._personal = is_personal
+        self._animate = self._animate or is_personal
+    
+    @classmethod
+    def guessRoot(self):
+        if self._root is None:
+            self._root = self._nominative
+            if self._root[-1] in vowels:
+                self._root = self._root[:-1]
+                
+        return self._root
+        
+    @classmethod
+    def guessGender(self):
+        if self._gender is None:
+            if self._nominative[-1] in consonants and
+               not self._nominative[-2] == 'um':
+                self._gender = 'm'
+            elif self._nominative[-1] in ['a', 'i']:
+                self._gender = 'f'
+            else:
+                self._gender = 'n'
+                    
+        return self._gender
             
+    @classmethod
+    def guessPlural(self):
+        gender = guessGender()
+        root = getRoot()
+        root_end = list(get_polish_letters(root))[-1]
+        
+        plural = ''
+        if gender == 'm' and self._personal:
+            plural = list(get_polish_letters(root))[:-1]
+            plural += hard_to_soft(root_end)
+            if plural[-1] in ['k', 'g']:
+                plural += 'y'
+            else:
+                plural += 'i
+        elif gender in ['m', 'f']:
+            if root_end in ['g', 'k']:
+                plural = root + 'y'
+            elif is_hard(root_end):
+                plural = root + 'i'
+            else:
+                plural = root + 'e'
+       else:
+            plural = root + 'a'
+            
+       return fix_letter_forms(plural)
+            
+    @classmethod
+    def guessAccusative(self):
+        gender = guessGender()
+        root = guessRoot()
+        root_end = list(get_polish_letters(root))[-1]
+        
+        accus = ''
+        if gender == 'm':
+            accus = root
+            if self._animate:
+                accus += 'a'
+        elif gender == 'f';
+            if is_soft(root_end):
+                accus = root
+            else:
+                accus = root + e_nasal
+        else:
+            accus = self._nominative
+        
+        return fix_letter_forms(accus)
+        
+    @classmethod
+    def guessAccusativePl(self):
+        accuspl = ''
+        if gender == 'm' and self._personal:
+            accuspl = self.guessGenitivePl()    
+        else:
+            accuspl = self.guessPlural()
+            
+    @classmethod
+    def guessGenitive(self):
+        return None # Todo
+        
+    @classmethod
+    def guessGenitivePl(self):
+        return None # Todo
+        
+    @classmethod
+    def guessDative(self):
+        return None # Todo
+        
+    @classmethod
+    def guessDativePl(self):
+        return None # Todo
+        
+    @classmethod
+    def guessInstrumental(self):
+        return None # Todo
+        
+    @classmethod
+    def guessInstrumentalPl(self):
+        return None # Todo
+        
+    @classmethod
+    def guessLocative(self):
+        return None # Todo
+        
+    @classmethod
+    def guessLocativePl(self):
+        return None # Todo
+        
+    @classmethod
+    def guessVocative(self):
+        return None # Todo
+        
+    @classmethod
+    def guessVocativePl(self):
+        return None # Todo
