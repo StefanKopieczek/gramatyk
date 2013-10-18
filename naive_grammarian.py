@@ -26,13 +26,14 @@ soft_to_hard = {
     'fi'          : 'f',
     'wi'          : 'w',
     'mi'          : 'm',
-    c_acute       : 't',
     'ci'          : 't',
+    c_acute       : 't',
     'd' + z_acute : 'd',
+    'si'          : 's',
     s_acute       : 's',
     z_acute       : 'z',
-    n_acute       : 'n',
     'ni'          : 'n',
+    n_acute       : 'n',
     'l'           : l_stroke,
     'rz'          : 'r',
     'cz'          : 'c',      # cz softens to c, but c is still soft.
@@ -40,8 +41,6 @@ soft_to_hard = {
     z_dot         : 'dz',     # z-dot softens to dz, but dz is still soft.
     'dz'          : 'g',
     'sz'          : 'ch',
-    s_acute       : 'ch',
-    'si'          : 'ch',
     'j'           : 'j'       # 'j' is soft, but has no matching hard consonant.   
 }
 
@@ -199,6 +198,7 @@ class Noun(object):
         gender = self.guessGender()
         root = self.guessRoot()
         root_end = list(polish_letters(root))[-1]
+        nom_end = list(polish_letters(self._nominative))[-1]
         
         accus = ''
         if gender == 'm':
@@ -206,7 +206,7 @@ class Noun(object):
             if self._animate:
                 accus += 'a'
         elif gender == 'f':
-            if is_soft(root_end):
+            if is_soft(root_end) and not nom_end in ['a', 'i']:
                 accus = root
             else:
                 accus = root + e_nasal
@@ -221,6 +221,8 @@ class Noun(object):
             accuspl = self.guessGenitivePl()    
         else:
             accuspl = self.guessPlural()
+
+        return fix_letter_forms(accuspl)
             
     def guessGenitive(self):
         gender = self.guessGender()
@@ -242,28 +244,105 @@ class Noun(object):
         return fix_letter_forms(gen)
         
     def guessGenitivePl(self):
-        return None # Todo
+        gender = self.guessGender()
+        root = self.guessRoot()
+        root_end = list(polish_letters(root))[-1]
+        nom_end = list(polish_letters(self._nominative))[-1]
         
+        genpl = ''
+        if is_soft(root_end) and (gender == 'm' or 
+           (gender == 'f' and nom_end in ['a', 'i'])):
+            if root_end in ['g', 'k']:
+                genpl = root + 'i'
+            else:
+                gen = root + 'y'
+        elif gender == 'm':
+            # Masculine noun, hard stem.
+            genpl = root + o_acute + 'w'
+        else:
+            # Feminine noun with hard stem, or neuter noun.
+            genpl = root
+
+        return fix_letter_forms(genpl)        
+
     def guessDative(self):
-        return None # Todo
+        gender = self.guessGender()
+        root = self.guessRoot()
+        root_end = list(polish_letters(root))[-1]
+        
+        dative = ''
+        if gender == 'm':
+            dative = root + 'owi'
+        elif gender == 'f' and is_hard(root_end):
+            dative = (''.join(polish_letters(root))[:-1] + 
+                      hard_to_soft[root_end] + 'e')
+        elif gender == 'f':
+            # Feminine, soft stem.
+            if root_end in ['g', 'k']:
+                dative = root + 'i'
+            else:
+                dative = root + 'y'
+        else:
+            # Neuter
+            dative = root + 'u' 
+        
+        return fix_letter_forms(dative)
         
     def guessDativePl(self):
-        return None # Todo
+        return fix_letter_forms(self.guessRoot() + 'om')    
         
     def guessInstrumental(self):
-        return None # Todo
+        instrumental = ''
+        root = self.guessRoot()
+        if self.guessGender() == 'f':
+            instrumental = root + a_nasal
+        else:
+            instrumental = root + 'em'
         
+        return fix_letter_forms(instrumental)
+
     def guessInstrumentalPl(self):
-        return None # Todo
+        return self.guessRoot() + 'ami'
         
     def guessLocative(self):
-        return None # Todo
+        gender = self.guessGender()
+        root = self.guessRoot()
+        root_end = list(polish_letters(root))[-1] 
+
+        locative = ''
+        if gender == 'f':
+            locative = self.guessDative()
+        elif is_soft(root_end) or root_end in ['k', 'g', 'w']:
+            locative = root + 'u'
+        else:
+            locative = (''.join(polish_letters(root))[:-1] + 
+                        hard_to_soft[root_end] + 'e')
+            
+        return fix_letter_forms(locative) 
         
     def guessLocativePl(self):
-        return None # Todo
+        return fix_letter_forms(self.guessRoot() + 'ach') 
         
     def guessVocative(self):
-        return None # Todo
+        gender = self.guessGender()
+        root = self.guessRoot()
+        root_end = list(polish_letters(root))[-1]
+        nom_end = list(polish_letters(self._nominative))[-1]
+
+        vocative = ''
+        if gender == 'f' and (is_hard(root_end) or nom_end in ['a', 'i']):
+            vocative = root + 'o' 
+        elif gender == 'f' and root_end in ['k', 'g']:
+            vocative = root + 'i'
+        elif gender == 'f':
+            vocative = root + 'y'
+        elif gender == 'm':
+            vocative = self.guessLocative()
+        else:
+            # Neuter
+            vocative = self._nominative
+
+        return fix_letter_forms(vocative)
         
     def guessVocativePl(self):
-        return None # Todo
+        return fix_letter_forms(self.guessPlural()) 
