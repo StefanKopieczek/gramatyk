@@ -1,3 +1,11 @@
+from __future__ import unicode_literals
+
+VOWELS = set('aąeęioóuy')
+CONSONANTS = (set('bcćdfghjklłmnńprsśtwzźż') +
+              set(['bi', 'ch', 'ci', 'cz', 'dz', 'dzi', 'dź', 'dż', 'gi',
+                   'ki', 'mi', 'ni', 'pi', 'rz', 'si', 'sz', 'zi']))
+
+
 def trim_suffix(word, suffix):
     if word.endswith(suffix):
         word = word[:-len(suffix)]
