@@ -32,9 +32,6 @@ def _complete_verb(verb):
     if verb.root is None:
         verb.root = _deduce_verb_root(verb)
 
-    if verb.infinitive is None:
-        verb.infinitive = _deduce_infinitive(verb)
-
     # Build up the present tense.
     for person, plurality in product(range(3), range(2)):
         idx = 3 * plurality + person
@@ -69,10 +66,6 @@ def _deduce_verb_root(verb):
             candidates.append(min(trimmings, key=len))
 
     return Counter(candidates).most_common(1)[0][0]
-
-
-def _deduce_infinitive(verb):
-    return verb.root + 'ać'
 
 
 def _deduce_present_tense(verb, person, plurality):
